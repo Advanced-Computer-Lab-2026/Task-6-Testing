@@ -33,6 +33,35 @@ describe('/api/items', () => {
     expect(res.body.items).toEqual([]);
   });
 
-  test.todo('POST returns 409 when the same title is reported at the same location twice');
-  test.todo('PATCH returns 403 when someone who is not the reporter edits the item');
+  test('POST returns 409 when the same title is reported at the same location twice', async () => {
+    // Arrange: a logged-in user who has already reported the default item
+    // ("Black backpack" at "Library").
+    const token = await registerAndGetToken();
+    await createItem(token);
+
+    // Act: report the exact same title + location again.
+    const res = await request(app)
+      .post('/api/items')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Black backpack', status: 'lost', category: 'accessories', location: 'Library' });
+
+    // Assert: the duplicate is rejected with 409 Conflict.
+    expect(res.status).toBe(409);
+  });
+
+  test('PATCH returns 403 when someone who is not the reporter edits the item', async () => {
+    // Arrange: two different users; the first one (owner) reports an item.
+    const ownerToken = await registerAndGetToken('Alice', 'alice@test.com');
+    const otherToken = await registerAndGetToken('Bob', 'bob@test.com');
+    const item = await createItem(ownerToken);
+
+    // Act: the second user tries to edit the owner's item.
+    const res = await request(app)
+      .patch(`/api/items/${item._id}`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({ status: 'found' });
+
+    // Assert: the request is forbidden.
+    expect(res.status).toBe(403);
+  });
 });
