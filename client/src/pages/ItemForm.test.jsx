@@ -44,6 +44,47 @@ describe('ItemForm — report mode (/items/new)', () => {
     expect(category).toHaveValue('other')
   })
 
-  test.todo('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items')
-  test.todo('shows the server\'s message when the request fails (e.g. 409) and stays on the page')
+  test('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items', async () => {
+    // Arrange: the fake API answers "success", and we get a fake user to type/click.
+    api.post.mockResolvedValue({ data: { item: {} } })
+    const user = userEvent.setup()
+    renderAt('/items/new')
+
+    // Act: fill in every field like a real user, then press Save.
+    await user.type(screen.getByPlaceholderText(/title/i), 'Black backpack')
+    const [status, category] = screen.getAllByRole('combobox')
+    await user.selectOptions(status, 'found')
+    await user.selectOptions(category, 'accessories')
+    await user.type(screen.getByPlaceholderText(/location/i), 'Library')
+    await user.type(screen.getByPlaceholderText(/description/i), 'Has a red keychain')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    // Assert: the API got exactly these five fields (an extra reportedBy would fail this)...
+    expect(api.post).toHaveBeenCalledWith('/items', {
+      title: 'Black backpack',
+      status: 'found',
+      category: 'accessories',
+      location: 'Library',
+      description: 'Has a red keychain'
+    })
+    // ...and the page moved to /items.
+    expect(await screen.findByText('Items page')).toBeInTheDocument()
+  })
+
+  test('shows the server\'s message when the request fails (e.g. 409) and stays on the page', async () => {
+    // Arrange: the fake API answers with a failure, shaped like a real axios error.
+    api.post.mockRejectedValue({ response: { data: { message: 'Duplicate item at this location' } } })
+    const user = userEvent.setup()
+    renderAt('/items/new')
+
+    // Act: fill in a title and press Save.
+    await user.type(screen.getByPlaceholderText(/title/i), 'Black backpack')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    // Assert: the server's message is shown to the user...
+    expect(await screen.findByText('Duplicate item at this location')).toBeInTheDocument()
+    // ...and we did NOT navigate away: no "Items page", the form is still here.
+    expect(screen.queryByText('Items page')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /report item/i })).toBeInTheDocument()
+  })
 })
