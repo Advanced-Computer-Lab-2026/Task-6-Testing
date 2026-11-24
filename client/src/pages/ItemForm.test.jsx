@@ -43,7 +43,49 @@ describe('ItemForm — report mode (/items/new)', () => {
     expect(status).toHaveValue('lost')
     expect(category).toHaveValue('other')
   })
+  test('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items', async () => {
+    // Arrange: the API call succeeds
+    api.post.mockResolvedValue({ data: { item: {} } })
+    renderAt('/items/new')
 
-  test.todo('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items')
-  test.todo('shows the server\'s message when the request fails (e.g. 409) and stays on the page')
+    // Act: fill in every field with non-default values, then click Save
+    await userEvent.type(screen.getByPlaceholderText(/title/i), 'Phone')
+    const [status, category] = screen.getAllByRole('combobox')
+    await userEvent.selectOptions(status, 'found')
+    await userEvent.selectOptions(category, 'electronics')
+    await userEvent.type(screen.getByPlaceholderText(/location/i), 'Library')
+    await userEvent.type(screen.getByPlaceholderText(/description/i), 'Blue case')
+    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    // Assert: navigation happened (findBy waits for the async submit to finish)...
+    expect(await screen.findByText('Items page')).toBeInTheDocument()
+    // ...and the payload is exactly these five fields (an extra key like reportedBy would fail)
+    expect(api.post).toHaveBeenCalledWith('/items', {
+      title: 'Phone',
+      status: 'found',
+      category: 'electronics',
+      location: 'Library',
+      description: 'Blue case',
+    })
+  })
+
+  test('shows the server\'s message when the request fails (e.g. 409) and stays on the page', async () => {
+    // Arrange: the API call fails with a server message
+    api.post.mockRejectedValue({
+      response: { status: 409, data: { message: 'Duplicate item at this location' } },
+    })
+    renderAt('/items/new')
+
+    // Act: fill in the fields and submit
+    await userEvent.type(screen.getByPlaceholderText(/title/i), 'Phone')
+    await userEvent.type(screen.getByPlaceholderText(/location/i), 'Library')
+    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    // Assert: the message is shown and we did not navigate away
+    expect(await screen.findByText('Duplicate item at this location')).toBeInTheDocument()
+    expect(screen.queryByText('Items page')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /report item/i })).toBeInTheDocument()
+  })
+  //test.todo('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items')
+ // test.todo('shows the server\'s message when the request fails (e.g. 409) and stays on the page')
 })
