@@ -33,6 +33,28 @@ describe('/api/items', () => {
     expect(res.body.items).toEqual([]);
   });
 
-  test.todo('POST returns 409 when the same title is reported at the same location twice');
-  test.todo('PATCH returns 403 when someone who is not the reporter edits the item');
+  test('POST returns 409 when the same title is reported at the same location twice', async () => {
+    const token = await registerAndGetToken();
+
+    await createItem(token, { title: 'Phone', location: 'Library' });
+    const duplicate = await request(app)
+      .post('/api/items')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Phone', status: 'lost', category: 'electronics', location: 'Library' });
+
+    expect(duplicate.status).toBe(409);
+  });
+
+  test('PATCH returns 403 when someone who is not the reporter edits the item', async () => {
+    const reporterToken = await registerAndGetToken('Reporter', 'reporter@test.com');
+    const otherToken = await registerAndGetToken('Other', 'other@test.com');
+    const item = await createItem(reporterToken);
+
+    const res = await request(app)
+      .patch(`/api/items/${item._id}`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({ title: 'Changed title' });
+
+    expect(res.status).toBe(403);
+  });
 });
