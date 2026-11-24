@@ -33,6 +33,34 @@ describe('/api/items', () => {
     expect(res.body.items).toEqual([]);
   });
 
-  test.todo('POST returns 409 when the same title is reported at the same location twice');
-  test.todo('PATCH returns 403 when someone who is not the reporter edits the item');
+  test('POST returns 409 when the same title is reported at the same location twice', async () => {
+    // Arrange(setting up what teh test needs in this case a registered user token and storing their jwt)
+    const token = await registerAndGetToken();
+    await createItem(token);
+
+    // Act
+    const res = await request(app) //sends request straight to the express app so we dont need a running server
+      .post('/api/items') //endpoint for reporting an
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Black backpack', status: 'lost', category: 'accessories', location: 'Library' });
+
+    // Assert
+    expect(res.status).toBe(409);
+  });
+
+  test('PATCH returns 403 when a user different from the one that reported the item tries to edit it', async () => {
+    // Arrange: two different users (different emails), and an item reported by ahmed
+    const ahmedToken = await registerAndGetToken('ahmed', 'ahmed@test.com');
+    const mohsenToken = await registerAndGetToken('mohsen', 'mohsen@test.com');
+    const item = await createItem(ahmedToken); // keep it: we need item._id for the URL
+
+    // Act: mohsen tries to edit ahmed's item
+    const res = await request(app)
+      .patch(`/api/items/${item._id}`)
+      .set('Authorization', `Bearer ${mohsenToken}`)
+      .send({ title: 'New title' });
+
+    // Assert: mohsen is forbidden
+    expect(res.status).toBe(403);
+  });
 });
