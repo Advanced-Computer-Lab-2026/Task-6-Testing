@@ -41,7 +41,7 @@ export async function createItem(req, res, next) {
     const doc = await Item.create({ ...value, reportedBy: req.user.id });
     res.status(201).json({ item: doc });
   } catch (err) {
-    if (err.code === 11000) return res.status(409).json({ message: 'Duplicate item at this location' });
+    if (err.code === 11000) return res.status(409).json({ message: 'Duplicate item at this location' }); //test 2 duplicate item at this location
     next(err);
   }
 }
@@ -50,7 +50,7 @@ export async function updateItem(req, res, next) {
   try {
     const existing = await Item.findById(req.params.id);
     if (!existing) return res.status(404).json({ message: 'Item not found' });
-    if (existing.reportedBy?.toString() !== req.user.id) {
+    if (existing.reportedBy?.toString() !== req.user.id) { //test 3 you can only edit items you reported
       return res.status(403).json({ message: 'You can only edit items you reported' });
     }
 
