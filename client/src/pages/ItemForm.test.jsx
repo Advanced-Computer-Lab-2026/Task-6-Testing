@@ -44,6 +44,51 @@ describe('ItemForm — report mode (/items/new)', () => {
     expect(category).toHaveValue('other')
   })
 
-  test.todo('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items')
-  test.todo('shows the server\'s message when the request fails (e.g. 409) and stays on the page')
+  test('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items', async () => {
+    // Arrange: mock a successful api.post and render the form
+    api.post.mockResolvedValue({ data: { item: {} } });
+    renderAt('/items/new');
+    const user = userEvent.setup();
+
+    // Act: fill in every field and click Save
+    await user.type(screen.getByPlaceholderText(/title/i), 'Red Umbrella');
+    const [statusSelect, categorySelect] = screen.getAllByRole('combobox');
+    await user.selectOptions(statusSelect, 'found');
+    await user.selectOptions(categorySelect, 'accessories');
+    await user.type(screen.getByPlaceholderText(/location/i), 'Library');
+    await user.type(screen.getByPlaceholderText(/description/i), 'A red umbrella');
+    await user.click(screen.getByRole('button', { name: /save/i }));
+
+    // Assert: api.post called with exactly the right body (no reportedBy)
+    expect(api.post).toHaveBeenCalledWith('/items', {
+      title: 'Red Umbrella',
+      status: 'found',
+      category: 'accessories',
+      location: 'Library',
+      description: 'A red umbrella',
+    });
+
+    // Assert: navigated away to /items
+    expect(await screen.findByText('Items page')).toBeInTheDocument();
+  });
+
+  test("shows the server's message when the request fails (e.g. 409) and stays on the page", async () => {
+    // Arrange: mock api.post to reject with a server error message
+    api.post.mockRejectedValue({
+      response: { data: { message: 'Duplicate item at this location' } },
+    });
+    renderAt('/items/new');
+    const user = userEvent.setup();
+
+    // Act: fill in minimal fields and submit
+    await user.type(screen.getByPlaceholderText(/title/i), 'Red Umbrella');
+    await user.type(screen.getByPlaceholderText(/location/i), 'Library');
+    await user.click(screen.getByRole('button', { name: /save/i }));
+
+    // Assert: error message is shown on the page
+    expect(await screen.findByText('Duplicate item at this location')).toBeInTheDocument();
+
+    // Assert: did NOT navigate away — the form heading is still visible
+    expect(screen.getByRole('heading', { name: /report item/i })).toBeInTheDocument();
+  });
 })
