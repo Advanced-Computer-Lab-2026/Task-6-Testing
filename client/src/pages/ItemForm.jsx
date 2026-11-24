@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
 
-const defaults = { title: '', description: '', category: 'other', status: 'lost', location: '' }
+const defaults = { title: '', description: '', category: 'other', status: 'lost', location: '' } //test 1 default values
+
 
 const statuses = ['lost', 'found', 'claimed']
 const categories = ['electronics', 'clothing', 'documents', 'accessories', 'other']
@@ -38,7 +39,7 @@ export default function ItemForm() {
   async function onSubmit(e) {
     e.preventDefault()
     setError('')
-    const { title, status, category, location, description } = form
+    const { title, status, category, location, description } = form // test 2 validate form data
     const body = { title, status, category, location, description }
     try {
       if (id) await api.patch(`/items/${id}`, body)

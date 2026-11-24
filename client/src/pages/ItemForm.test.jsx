@@ -44,6 +44,54 @@ describe('ItemForm — report mode (/items/new)', () => {
     expect(category).toHaveValue('other')
   })
 
-  test.todo('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items')
-  test.todo('shows the server\'s message when the request fails (e.g. 409) and stays on the page')
+  test('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items', async () => {
+    // ARRANGE: the fake API succeeds, then show the form.
+    api.post.mockResolvedValue({ data: { item: {} } })
+    renderAt('/items/new')
+
+    // ACT: fill in every field the way a user would, then click Save.
+    await userEvent.type(screen.getByPlaceholderText(/title/i), 'Black backpack')
+    const [status, category] = screen.getAllByRole('combobox') // the two <select>s
+    await userEvent.selectOptions(status, 'found')
+    await userEvent.selectOptions(category, 'accessories')
+    await userEvent.type(screen.getByPlaceholderText(/location/i), 'Library')
+    await userEvent.type(screen.getByPlaceholderText(/description/i), 'Has a red keychain')
+    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    // ASSERT 1: the page navigated to /items (it now shows the text "Items page").
+    expect(await screen.findByText('Items page')).toBeInTheDocument()
+
+    // ASSERT 2: api.post was called once, with the right URL and EXACTLY these 5 fields.
+    // toHaveBeenCalledWith compares the whole object, so an extra key such as
+    // reportedBy, a missing key, or a wrong value would make this fail.
+    expect(api.post).toHaveBeenCalledTimes(1)
+    expect(api.post).toHaveBeenCalledWith('/items', {
+      title: 'Black backpack',
+      status: 'found',
+      category: 'accessories',
+      location: 'Library',
+      description: 'Has a red keychain'
+    })
+  })
+
+  test('shows the server\'s message when the request fails (e.g. 409) and stays on the page', async () => {
+    // ARRANGE: the fake API REJECTS, shaped like an axios error from the real server.
+    api.post.mockRejectedValue({ response: { data: { message: 'Duplicate item at this location' } } })
+    renderAt('/items/new')
+
+    // ACT: fill in a title and submit.
+    await userEvent.type(screen.getByPlaceholderText(/title/i), 'Black backpack')
+    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    // ASSERT 1: the server's message is shown on the page (findBy waits for the async state update).
+    expect(await screen.findByText('Duplicate item at this location')).toBeInTheDocument()
+
+    // ASSERT 2: we did NOT navigate away: "Items page" is absent and the form is still there.
+    // (queryBy returns null instead of throwing, which is what we want for "not there".)
+    expect(screen.queryByText('Items page')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /report item/i })).toBeInTheDocument()
+
+    // The request really was attempted (so the error came from the failed save, not from nowhere).
+    expect(api.post).toHaveBeenCalledTimes(1)
+  })
 })
