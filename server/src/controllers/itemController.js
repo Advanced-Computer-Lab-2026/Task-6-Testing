@@ -41,7 +41,7 @@ export async function createItem(req, res, next) {
     const doc = await Item.create({ ...value, reportedBy: req.user.id });
     res.status(201).json({ item: doc });
   } catch (err) {
-    // TEMP: duplicate -> 409 mapping removed  // if (err.code === 11000) return res.status(409).json({ message: 'Duplicate item at this location' });
+    if (err.code === 11000) return res.status(409).json({ message: 'Duplicate item at this location' });
     next(err);
   }
 }
