@@ -33,6 +33,30 @@ describe('/api/items', () => {
     expect(res.body.items).toEqual([]);
   });
 
-  test.todo('POST returns 409 when the same title is reported at the same location twice');
-  test.todo('PATCH returns 403 when someone who is not the reporter edits the item');
+  test('POST returns 409 when the same title is reported at the same location twice', async () => {
+    const token = await registerAndGetToken();
+    await createItem(token, { title: 'Water bottle', location: 'Cafeteria' });
+
+    const res = await request(app)
+      .post('/api/items')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Water bottle', status: 'lost', category: 'other', location: 'Cafeteria' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.message).toBe('Duplicate item at this location');
+  });
+
+  test('PATCH returns 403 when someone who is not the reporter edits the item', async () => {
+    const ownerToken = await registerAndGetToken('Alice', 'alice@test.com');
+    const otherToken = await registerAndGetToken('Bob', 'bob@test.com');
+    const item = await createItem(ownerToken);
+
+    const res = await request(app)
+      .patch(`/api/items/${item._id}`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({ status: 'claimed' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.message).toBe('You can only edit items you reported');
+  });
 });
