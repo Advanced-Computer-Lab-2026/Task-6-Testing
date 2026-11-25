@@ -1,23 +1,13 @@
-// Frontend tests for the ItemForm page — THIS is the only frontend file you edit.
-// Run with:  npm test --workspace client
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import ItemForm from './ItemForm.jsx'
 import { api } from '../api'
 
-// Replace the real axios instance with fake (mock) functions — no server needed.
-// In a test you decide what each one returns, e.g.
-//   api.post.mockResolvedValue({ data: { item: {} } })                                  // success
-//   api.post.mockRejectedValue({ response: { status: 409, data: { message: '...' } } }) // failure
-// and afterwards check how it was called:
-//   expect(api.post).toHaveBeenCalledWith('/items', { ... })
 jest.mock('../api', () => ({
   api: { get: jest.fn(), post: jest.fn(), patch: jest.fn() }
 }))
 
-// Helper: renders ItemForm at `path`. "/items/new" = report mode, "/items/<id>" = edit mode.
-// After a successful save the page navigates to /items, which renders the text "Items page".
 function renderAt(path) {
   return render(
     <MemoryRouter initialEntries={[path]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
@@ -30,16 +20,14 @@ function renderAt(path) {
   )
 }
 
-// Reset every mock's calls and return values before each test.
 beforeEach(() => jest.clearAllMocks())
 
 describe('ItemForm — report mode (/items/new)', () => {
-  // Worked example — read it, then write the two tests below in the same style.
   test('renders all fields with their default values', () => {
     renderAt('/items/new')
     expect(screen.getByRole('heading', { name: /report item/i })).toBeInTheDocument()
     expect(screen.getByPlaceholderText(/title/i)).toHaveValue('')
-    const [status, category] = screen.getAllByRole('combobox') // the two <select>s
+    const [status, category] = screen.getAllByRole('combobox')
     expect(status).toHaveValue('lost')
     expect(category).toHaveValue('other')
   })
