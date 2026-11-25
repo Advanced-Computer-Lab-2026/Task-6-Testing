@@ -30,7 +30,7 @@ function renderAt(path) {
   )
 }
 
-// Reset every mock's calls and return values before each test.
+// Clear call history. Each submit test sets its own mock response.
 beforeEach(() => jest.clearAllMocks())
 
 describe('ItemForm — report mode (/items/new)', () => {
@@ -44,6 +44,43 @@ describe('ItemForm — report mode (/items/new)', () => {
     expect(category).toHaveValue('other')
   })
 
-  test.todo('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items')
-  test.todo('shows the server\'s message when the request fails (e.g. 409) and stays on the page')
+  test('submitting sends the five report fields and navigates to /items', async () => {
+    const user = userEvent.setup()
+    api.post.mockResolvedValue({ data: { item: {} } })
+    renderAt('/items/new')
+
+    await user.type(screen.getByPlaceholderText(/title/i), 'Black backpack')
+    const [status, category] = screen.getAllByRole('combobox')
+    await user.selectOptions(status, 'found')
+    await user.selectOptions(category, 'accessories')
+    await user.type(screen.getByPlaceholderText(/location/i), 'Library')
+    await user.type(screen.getByPlaceholderText(/description/i), 'Has a red zipper')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(api.post.mock.calls).toStrictEqual([
+      ['/items', {
+        title: 'Black backpack',
+        status: 'found',
+        category: 'accessories',
+        location: 'Library',
+        description: 'Has a red zipper'
+      }]
+    ])
+    expect(await screen.findByText('Items page')).toBeInTheDocument()
+  })
+
+  test('shows the server error and keeps the report form open', async () => {
+    const user = userEvent.setup()
+    const message = 'Duplicate item at this location'
+    api.post.mockRejectedValue({ response: { data: { message } } })
+    renderAt('/items/new')
+
+    await user.type(screen.getByPlaceholderText(/title/i), 'Black backpack')
+    await user.type(screen.getByPlaceholderText(/location/i), 'Library')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText(message)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Report Item' })).toBeInTheDocument()
+    expect(screen.queryByText('Items page')).not.toBeInTheDocument()
+  })
 })
