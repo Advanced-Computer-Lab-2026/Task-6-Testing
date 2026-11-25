@@ -44,6 +44,28 @@ describe('ItemForm — report mode (/items/new)', () => {
     expect(category).toHaveValue('other')
   })
 
-  test.todo('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items')
-  test.todo('shows the server\'s message when the request fails (e.g. 409) and stays on the page')
+  test('submitting POSTs the editable fields without reportedBy and navigates to /items', async () => { // Checks the README's successful report submission behavior.
+    const user = userEvent.setup() // Creates a user-event driver for realistic typing and clicking.
+    api.post.mockResolvedValue({ data: { item: {} } }) // Makes the mocked API report a successful save.
+    renderAt('/items/new') // Renders the form in new-report mode.
+    await user.type(screen.getByPlaceholderText(/title/i), 'Blue umbrella') // Enters the item title.
+    await user.selectOptions(screen.getAllByRole('combobox')[0], 'found') // Chooses the item's found status.
+    await user.selectOptions(screen.getAllByRole('combobox')[1], 'electronics') // Chooses the electronics category.
+    await user.type(screen.getByPlaceholderText(/location/i), 'Cafeteria') // Enters where the item was found.
+    await user.type(screen.getByPlaceholderText(/description/i), 'Left on a chair') // Enters the item's description.
+    await user.click(screen.getByRole('button', { name: /save/i })) // Submits the completed report form.
+    expect(api.post).toHaveBeenCalledWith('/items', { title: 'Blue umbrella', status: 'found', category: 'electronics', location: 'Cafeteria', description: 'Left on a chair' }) // Verifies the exact API path and body contain the five allowed fields only.
+    expect(await screen.findByText('Items page')).toBeInTheDocument() // Waits for and verifies navigation to the items page after saving.
+  }) // Ends the successful-submission test.
+  test('shows the server message when the request fails and stays on the page', async () => { // Checks the README's server-error display and no-navigation behavior.
+    const user = userEvent.setup() // Creates a user-event driver for realistic form interaction.
+    api.post.mockRejectedValue({ response: { data: { message: 'Duplicate item at this location' } } }) // Makes the mocked API return the duplicate-report error from the README.
+    renderAt('/items/new') // Renders the form in new-report mode.
+    await user.type(screen.getByPlaceholderText(/title/i), 'Black backpack') // Enters a title before submitting.
+    await user.type(screen.getByPlaceholderText(/location/i), 'Library') // Enters a location before submitting.
+    await user.click(screen.getByRole('button', { name: /save/i })) // Submits the form to receive the mocked server error.
+    expect(await screen.findByText('Duplicate item at this location')).toBeInTheDocument() // Waits for and verifies that the server's message is displayed.
+    expect(screen.getByRole('heading', { name: /report item/i })).toBeInTheDocument() // Verifies the report form remains visible after the error.
+    expect(screen.queryByText('Items page')).not.toBeInTheDocument() // Verifies the failed save did not navigate to the items page.
+  }) // Ends the server-error test.
 })

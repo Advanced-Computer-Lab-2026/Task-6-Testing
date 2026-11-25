@@ -33,6 +33,23 @@ describe('/api/items', () => {
     expect(res.body.items).toEqual([]);
   });
 
-  test.todo('POST returns 409 when the same title is reported at the same location twice');
-  test.todo('PATCH returns 403 when someone who is not the reporter edits the item');
+  test('POST returns 409 when the same title is reported at the same location twice', async () => { // Checks the README's duplicate-report conflict behavior.
+    const token = await registerAndGetToken('Alice', 'duplicate@test.com'); // Registers the reporter and gets a token for authenticated requests.
+    await createItem(token, { title: 'Phone', location: 'Library' }); // Creates the first report at this exact title and location.
+    const res = await request(app) // Starts the second HTTP request to the Express app.
+      .post('/api/items') // Sends the second report to the item creation endpoint.
+      .set('Authorization', `Bearer ${token}`) // Authenticates the duplicate report as the same user.
+      .send({ title: 'Phone', status: 'lost', category: 'electronics', location: 'Library' }); // Repeats the title and location to trigger the duplicate rule.
+    expect(res.status).toBe(409); // Asserts the API rejects the duplicate with HTTP 409.
+  }); // Ends the duplicate-report test.
+  test('PATCH returns 403 when someone who is not the reporter edits the item', async () => { // Checks the README's item ownership protection.
+    const ownerToken = await registerAndGetToken('Alice', 'owner@test.com'); // Registers the user who will report the item.
+    const otherToken = await registerAndGetToken('Bob', 'other@test.com'); // Registers a different user who must not edit that item.
+    const item = await createItem(ownerToken); // Creates an item owned by the first user.
+    const res = await request(app) // Starts a request to update the owned item.
+      .patch(`/api/items/${item._id}`) // Targets the item created by the first user.
+      .set('Authorization', `Bearer ${otherToken}`) // Authenticates the edit as the other user.
+      .send({ title: 'Edited backpack' }); // Attempts to change the item's title.
+    expect(res.status).toBe(403); // Asserts the API forbids edits by anyone other than the reporter.
+  }); // Ends the ownership-protection test.
 });
