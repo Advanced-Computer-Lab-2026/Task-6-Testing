@@ -44,6 +44,47 @@ describe('ItemForm — report mode (/items/new)', () => {
     expect(category).toHaveValue('other')
   })
 
-  test.todo('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items')
-  test.todo('shows the server\'s message when the request fails (e.g. 409) and stays on the page')
+  test('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items', async () => {
+    // Arrange: the server accepts the item
+    api.post.mockResolvedValue({ data: { item: {} } })
+    renderAt('/items/new')
+
+    // Act: fill in every field (non-default dropdown values, so we know they are really read) and save
+    await userEvent.type(screen.getByPlaceholderText(/title/i), 'Phone')
+    const [status, category] = screen.getAllByRole('combobox')
+    await userEvent.selectOptions(status, 'found')
+    await userEvent.selectOptions(category, 'electronics')
+    await userEvent.type(screen.getByPlaceholderText(/location/i), 'Cafeteria')
+    await userEvent.type(screen.getByPlaceholderText(/description/i), 'Cracked screen')
+    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    // Assert: navigated to /items after exactly one POST with exactly these fields
+    expect(await screen.findByText('Items page')).toBeInTheDocument()
+    expect(api.post).toHaveBeenCalledTimes(1)
+    expect(api.post).toHaveBeenCalledWith('/items', {
+      title: 'Phone',
+      status: 'found',
+      category: 'electronics',
+      location: 'Cafeteria',
+      description: 'Cracked screen'
+    })
+    // toHaveBeenCalledWith ignores undefined properties, so check this one separately
+    const [, body] = api.post.mock.calls[0]
+    expect(body).not.toHaveProperty('reportedBy')
+  })
+
+  test('shows the server\'s message when the request fails (e.g. 409) and stays on the page', async () => {
+    // Arrange: the server rejects the item
+    api.post.mockRejectedValue({ response: { status: 409, data: { message: 'Duplicate item at this location' } } })
+    renderAt('/items/new')
+
+    // Act
+    await userEvent.type(screen.getByPlaceholderText(/title/i), 'Phone')
+    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    // Assert: the message is shown and we are still on the form
+    expect(await screen.findByText('Duplicate item at this location')).toBeInTheDocument()
+    expect(screen.queryByText('Items page')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /report item/i })).toBeInTheDocument()
+  })
 })
