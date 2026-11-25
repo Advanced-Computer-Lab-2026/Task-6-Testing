@@ -66,6 +66,7 @@ describe('/api/items', () => {
 
     // Assert: forbidden, and the item is unchanged
     expect(res.status).toBe(403);
+    expect(res.body.message).toBe('You can only edit items you reported');
     const after = await request(app).get(`/api/items/${item._id}`);
     expect(after.body.item.title).toBe('Black backpack');
   });
