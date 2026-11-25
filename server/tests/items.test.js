@@ -33,6 +33,20 @@ describe('/api/items', () => {
     expect(res.body.items).toEqual([]);
   });
 
-  test.todo('POST returns 409 when the same title is reported at the same location twice');
-  test.todo('PATCH returns 403 when someone who is not the reporter edits the item');
+  test('POST returns 409 when the same title is reported at the same location twice', async () => {
+    const token = await registerAndGetToken(); // Arrange: log in a user (Alice)
+    await createItem(token); // Arrange: first report -> "Black backpack" at "Library" (succeeds, 201)
+    // Act: report the SAME title at the SAME location again (unique index on title+location)
+    const res = await request(app).post('/api/items').set('Authorization', `Bearer ${token}`).send({ title: 'Black backpack', location: 'Library' });
+    expect(res.status).toBe(409); // Assert: MongoDB duplicate error (11000) is turned into 409 Conflict
+  });
+
+  test('PATCH returns 403 when someone who is not the reporter edits the item', async () => {
+    const owner = await registerAndGetToken(); // Arrange: user 1 (Alice) - the reporter
+    const other = await registerAndGetToken('Bob', 'bob@test.com'); // Arrange: user 2 (Bob) - different email
+    const item = await createItem(owner); // Arrange: Alice reports an item, so she owns it
+    // Act: Bob tries to edit Alice's item using HIS token
+    const res = await request(app).patch(`/api/items/${item._id}`).set('Authorization', `Bearer ${other}`).send({ title: 'Hacked' });
+    expect(res.status).toBe(403); // Assert: ownership check rejects him with 403 Forbidden
+  });
 });

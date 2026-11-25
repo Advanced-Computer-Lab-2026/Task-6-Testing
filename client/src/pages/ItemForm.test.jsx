@@ -44,6 +44,20 @@ describe('ItemForm — report mode (/items/new)', () => {
     expect(category).toHaveValue('other')
   })
 
-  test.todo('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items')
-  test.todo('shows the server\'s message when the request fails (e.g. 409) and stays on the page')
+  test('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items', async () => {
+    renderAt('/items/new') // Arrange: open the Report Item page (api.post is a jest.fn() -> returns undefined, so `await` succeeds)
+    await userEvent.type(screen.getByPlaceholderText(/title/i), 'Phone') // Act: fill the title (status/category/location/description keep defaults)
+    await userEvent.click(screen.getByRole('button', { name: /save/i })) // Act: submit the form
+    // Assert: exact body sent to '/items' — an extra key like reportedBy would make this fail
+    expect(api.post).toHaveBeenCalledWith('/items', { title: 'Phone', status: 'lost', category: 'other', location: '', description: '' })
+    expect(await screen.findByText('Items page')).toBeInTheDocument() // Assert: navigated to /items (findBy waits for it)
+  })
+
+  test('shows the server\'s message when the request fails (e.g. 409) and stays on the page', async () => {
+    api.post.mockRejectedValue({ response: { data: { message: 'Duplicate item at this location' } } }) // Arrange: make the fake request fail like a 409
+    renderAt('/items/new') // Arrange: open the Report Item page
+    await userEvent.click(screen.getByRole('button', { name: /save/i })) // Act: submit the form
+    expect(await screen.findByText('Duplicate item at this location')).toBeInTheDocument() // Assert: server message is shown (findBy waits for it)
+    expect(screen.queryByText('Items page')).not.toBeInTheDocument() // Assert: did NOT navigate (queryBy returns null instead of throwing)
+  })
 })
