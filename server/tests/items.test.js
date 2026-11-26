@@ -33,6 +33,33 @@ describe('/api/items', () => {
     expect(res.body.items).toEqual([]);
   });
 
-  test.todo('POST returns 409 when the same title is reported at the same location twice');
-  test.todo('PATCH returns 403 when someone who is not the reporter edits the item');
+  test('POST returns 409 when the same title is reported at the same location twice', async () => {
+  const token = await registerAndGetToken();
+  const item = {
+    title: 'Black backpack',
+    status: 'lost',
+    category: 'accessories',
+    location: 'Library',
+  };
+
+  await createItem(token, item);
+
+  const response = await request(app)
+    .post('/api/items')
+    .set('Authorization', `Bearer ${token}`)
+    .send(item);
+
+  expect(response.status).toBe(409);
 });
+test('PATCH returns 403 when someone who is not the reporter edits the item', async () => {
+  const ownerToken = await registerAndGetToken('Alice', 'alice@test.com');
+  const otherToken = await registerAndGetToken('Bob', 'bob@test.com');
+  const item = await createItem(ownerToken);
+
+  const response = await request(app)
+    .patch(`/api/items/${item._id}`)
+    .set('Authorization', `Bearer ${otherToken}`)
+    .send({ title: 'Updated backpack' });
+
+  expect(response.status).toBe(403);
+});});
