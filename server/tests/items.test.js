@@ -33,6 +33,35 @@ describe('/api/items', () => {
     expect(res.body.items).toEqual([]);
   });
 
-  test.todo('POST returns 409 when the same title is reported at the same location twice');
-  test.todo('PATCH returns 403 when someone who is not the reporter edits the item');
+  test('POST returns 409 when the same title is reported at the same location twice', async () => {
+    // Arrange: a logged-in user and the report we will send twice
+    const token = await registerAndGetToken();
+    const report = { title: 'Black backpack', location: 'Library' };
+
+    // Act: send the same report two times
+    const first = await request(app).post('/api/items').set('Authorization', `Bearer ${token}`).send(report);
+    const second = await request(app).post('/api/items').set('Authorization', `Bearer ${token}`).send(report);
+
+    // Assert: the first is created, the second is rejected as a duplicate
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(409);
+  });
+
+  test('PATCH returns 403 when someone who is not the reporter edits the item', async () => {
+    // Arrange: Alice reports an item, Bob is a different logged-in user
+    const aliceToken = await registerAndGetToken('Alice', 'alice@test.com');
+    const bobToken = await registerAndGetToken('Bob', 'bob@test.com');
+    const item = await createItem(aliceToken);
+
+    // Act: Bob tries to edit Alice's item
+    const res = await request(app)
+      .patch(`/api/items/${item._id}`)
+      .set('Authorization', `Bearer ${bobToken}`)
+      .send({ title: 'Changed by Bob' });
+
+    // Assert: the edit is forbidden and the item was not changed
+    expect(res.status).toBe(403);
+    const after = await request(app).get(`/api/items/${item._id}`);
+    expect(after.body.item.title).toBe('Black backpack');
+  });
 });
