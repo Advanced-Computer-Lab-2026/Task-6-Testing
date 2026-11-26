@@ -44,6 +44,50 @@ describe('ItemForm — report mode (/items/new)', () => {
     expect(category).toHaveValue('other')
   })
 
-  test.todo('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items')
-  test.todo('shows the server\'s message when the request fails (e.g. 409) and stays on the page')
+
+
+  
+  test('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items', async () => {
+  // Arrange: the fake API answers "success" when the form saves
+  api.post.mockResolvedValue({ data: { item: {} } }) //server byb3at fake success 
+  renderAt('/items/new') 
+
+  // Act: fill in every field like a user would, then click Save
+  await userEvent.type(screen.getByPlaceholderText(/title/i), 'Blue umbrella')
+  const [status, category] = screen.getAllByRole('combobox')
+  await userEvent.selectOptions(status, 'found')
+  await userEvent.selectOptions(category, 'accessories')
+  await userEvent.type(screen.getByPlaceholderText(/location/i), 'Cafeteria')
+  await userEvent.type(screen.getByPlaceholderText(/description/i), 'Left on a chair')
+  await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+  // Assert: the right data was sent — exactly these five fields, no reportedBy
+  expect(api.post).toHaveBeenCalledWith('/items', {
+    title: 'Blue umbrella',
+    status: 'found',
+    category: 'accessories',
+    location: 'Cafeteria',
+    description: 'Left on a chair'
+  })
+
+  // Assert: the page navigated to /items
+  expect(await screen.findByText('Items page')).toBeInTheDocument()
+})
+
+
+  test('shows the server\'s message when the request fails (e.g. 409) and stays on the page', async () => {
+  // Arrange: the fake API answers with an error, like the server's 409
+  api.post.mockRejectedValue({ response: { data: { message: 'Duplicate item at this location' } } })
+  renderAt('/items/new')
+
+  // Act: fill in a title and click Save
+  await userEvent.type(screen.getByPlaceholderText(/title/i), 'Black backpack')
+  await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+  // Assert: the server's message is shown on the page
+  expect(await screen.findByText('Duplicate item at this location')).toBeInTheDocument()
+
+  // Assert: we did NOT navigate away
+  expect(screen.queryByText('Items page')).not.toBeInTheDocument()
+})
 })
