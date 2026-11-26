@@ -44,6 +44,36 @@ describe('ItemForm — report mode (/items/new)', () => {
     expect(category).toHaveValue('other')
   })
 
-  test.todo('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items')
-  test.todo('shows the server\'s message when the request fails (e.g. 409) and stays on the page')
+  test('sends the five report fields and opens the items page', async () => {
+    api.post.mockResolvedValueOnce({ data: { item: {} } })
+    const user = userEvent.setup()
+    renderAt('/items/new')
+    const [status, category] = screen.getAllByRole('combobox')
+    await user.type(screen.getByPlaceholderText(/title/i), 'Phone')
+    await user.selectOptions(status, 'found')
+    await user.selectOptions(category, 'electronics')
+    await user.type(screen.getByPlaceholderText(/location/i), 'Lab')
+    await user.type(screen.getByPlaceholderText(/description/i), 'Blue case')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(api.post).toHaveBeenCalledWith('/items', {
+      title: 'Phone', status: 'found', category: 'electronics',
+      location: 'Lab', description: 'Blue case'
+    })
+    expect(await screen.findByText('Items page')).toBeInTheDocument()
+  })
+
+  test('shows the server error and keeps the report form open', async () => {
+    const message = 'Duplicate item at this location'
+    api.post.mockRejectedValueOnce({ response: { data: { message } } })
+    const user = userEvent.setup()
+    renderAt('/items/new')
+    await user.type(screen.getByPlaceholderText(/title/i), 'Phone')
+    await user.type(screen.getByPlaceholderText(/location/i), 'Lab')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText(message)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Report Item' })).toBeInTheDocument()
+    expect(screen.queryByText('Items page')).not.toBeInTheDocument()
+  })
 })
