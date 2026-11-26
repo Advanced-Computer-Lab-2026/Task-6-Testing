@@ -44,6 +44,34 @@ describe('ItemForm — report mode (/items/new)', () => {
     expect(category).toHaveValue('other')
   })
 
-  test.todo('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items')
-  test.todo('shows the server\'s message when the request fails (e.g. 409) and stays on the page')
+  test('submitting POSTs the editable fields and navigates to /items', async () => { // Checks the successful report workflow.
+    api.post.mockResolvedValue({ data: { item: {} } }) // Makes the fake API report a successful save.
+    const user = userEvent.setup() // Creates a user for realistic typing and clicking.
+    renderAt('/items/new') // Opens the page in new-report mode.
+    await user.type(screen.getByPlaceholderText(/title/i), 'Blue umbrella') // Enters the item's title.
+    const [status, category] = screen.getAllByRole('combobox') // Finds the status and category dropdowns.
+    await user.selectOptions(status, 'found') // Chooses the item's status.
+    await user.selectOptions(category, 'electronics') // Chooses the item's category.
+    await user.type(screen.getByPlaceholderText(/location/i), 'Student center') // Enters where it was found.
+    await user.type(screen.getByPlaceholderText(/description/i), 'Small blue umbrella') // Enters a description.
+    await user.click(screen.getByRole('button', { name: /save/i })) // Submits the completed form.
+    expect(api.post).toHaveBeenCalledWith('/items', { // Checks the endpoint and complete request body.
+      title: 'Blue umbrella', // Confirms the title is included.
+      status: 'found', // Confirms the selected status is included.
+      category: 'electronics', // Confirms the selected category is included.
+      location: 'Student center', // Confirms the location is included.
+      description: 'Small blue umbrella' // Confirms the description is included without reporter data.
+    }) // Ends the exact API-call assertion.
+    expect(await screen.findByText('Items page')).toBeInTheDocument() // Confirms success navigates to the items page.
+  }) // Ends the successful-submit test.
+
+  test('shows the server message when saving fails and stays on the page', async () => { // Checks the failed report workflow.
+    api.post.mockRejectedValue({ response: { data: { message: 'Duplicate item at this location' } } }) // Makes the fake API return its duplicate message.
+    const user = userEvent.setup() // Creates a user for realistic form interaction.
+    renderAt('/items/new') // Opens the page in new-report mode.
+    await user.type(screen.getByPlaceholderText(/title/i), 'Blue umbrella') // Enters a title so the form has user input.
+    await user.click(screen.getByRole('button', { name: /save/i })) // Submits the form and triggers the fake failure.
+    expect(await screen.findByText('Duplicate item at this location')).toBeInTheDocument() // Confirms the server's message is shown.
+    expect(screen.queryByText('Items page')).not.toBeInTheDocument() // Confirms a failed save does not navigate away.
+  }) // Ends the failed-submit test.
 })
