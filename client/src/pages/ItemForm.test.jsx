@@ -44,6 +44,40 @@ describe('ItemForm — report mode (/items/new)', () => {
     expect(category).toHaveValue('other')
   })
 
-  test.todo('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items')
-  test.todo('shows the server\'s message when the request fails (e.g. 409) and stays on the page')
+  test('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items', async () => {
+    api.post.mockResolvedValue({ data: { item: {} } })
+    renderAt('/items/new')
+    const user = userEvent.setup()
+
+    await user.type(screen.getByPlaceholderText(/title/i), 'Silver keys')
+    const [status, category] = screen.getAllByRole('combobox')
+    await user.selectOptions(status, 'found')
+    await user.selectOptions(category, 'accessories')
+    await user.type(screen.getByPlaceholderText(/location/i), 'Cafeteria')
+    await user.type(screen.getByPlaceholderText(/description/i), 'On a blue lanyard')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(await screen.findByText('Items page')).toBeInTheDocument()
+    expect(api.post).toHaveBeenCalledWith('/items', {
+      title: 'Silver keys',
+      status: 'found',
+      category: 'accessories',
+      location: 'Cafeteria',
+      description: 'On a blue lanyard'
+    })
+  })
+  
+  test('shows the server\'s message when the request fails (e.g. 409) and stays on the page', async () => {
+    api.post.mockRejectedValue({
+      response: { status: 409, data: { message: 'Duplicate item at this location' } }
+    })
+    renderAt('/items/new')
+    const user = userEvent.setup()
+
+    await user.type(screen.getByPlaceholderText(/title/i), 'Black backpack')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(await screen.findByText('Duplicate item at this location')).toBeInTheDocument()
+    expect(screen.queryByText('Items page')).not.toBeInTheDocument()
+  })
 })
