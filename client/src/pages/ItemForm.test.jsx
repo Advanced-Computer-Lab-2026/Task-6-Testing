@@ -43,7 +43,41 @@ describe('ItemForm — report mode (/items/new)', () => {
     expect(status).toHaveValue('lost')
     expect(category).toHaveValue('other')
   })
+//third test, checks correct form submission and naviagates to /items 
+  test('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items', async () => {
+    const user = userEvent.setup()
+    api.post.mockResolvedValue({ data: { item: {} } })
+    renderAt('/items/new')
 
-  test.todo('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items')
-  test.todo('shows the server\'s message when the request fails (e.g. 409) and stays on the page')
+    await user.type(screen.getByPlaceholderText(/title/i), 'Black backpack')
+    await user.selectOptions(screen.getAllByRole('combobox')[0], 'found')
+    await user.selectOptions(screen.getAllByRole('combobox')[1], 'accessories')
+    await user.type(screen.getByPlaceholderText(/location/i), 'Library')
+    await user.type(screen.getByPlaceholderText(/description/i), 'Small black bag')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(api.post).toHaveBeenCalledWith('/items', {
+      title: 'Black backpack',
+      status: 'found',
+      category: 'accessories',
+      location: 'Library',
+      description: 'Small black bag'
+    })
+    expect(await screen.findByText('Items page')).toBeInTheDocument()
+  })
+// fourth test , checks what happens when submission fails , user clicks save but api returns error 
+  test("shows the server's message when the request fails (e.g. 409) and stays on the page", async () => {
+    const user = userEvent.setup()
+    api.post.mockRejectedValue({
+      response: { data: { message: 'Duplicate item at this location' } }
+    })
+    renderAt('/items/new')
+
+    await user.type(screen.getByPlaceholderText(/title/i), 'Black backpack')
+    await user.type(screen.getByPlaceholderText(/location/i), 'Library')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(await screen.findByText('Duplicate item at this location')).toBeInTheDocument()
+    expect(screen.queryByText('Items page')).not.toBeInTheDocument()
+  })
 })
