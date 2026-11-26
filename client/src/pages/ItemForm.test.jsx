@@ -44,6 +44,39 @@ describe('ItemForm — report mode (/items/new)', () => {
     expect(category).toHaveValue('other')
   })
 
-  test.todo('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items')
-  test.todo('shows the server\'s message when the request fails (e.g. 409) and stays on the page')
+  test('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items', async () => {
+    api.post.mockResolvedValue({ data: { item: { _id: '1' } } })
+    renderAt('/items/new')
+
+    const [status, category] = screen.getAllByRole('combobox')
+    await userEvent.type(screen.getByPlaceholderText(/title/i), 'Blue Umbrella')
+    await userEvent.selectOptions(status, 'found')
+    await userEvent.selectOptions(category, 'accessories')
+    await userEvent.type(screen.getByPlaceholderText(/location/i), 'Cafeteria')
+    await userEvent.type(screen.getByPlaceholderText(/description/i), 'Left near the counter')
+    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(await screen.findByText('Items page')).toBeInTheDocument()
+    expect(api.post).toHaveBeenCalledWith('/items', {
+      title: 'Blue Umbrella',
+      status: 'found',
+      category: 'accessories',
+      location: 'Cafeteria',
+      description: 'Left near the counter'
+    })
+  })
+
+  test('shows the server\'s message when the request fails (e.g. 409) and stays on the page', async () => {
+    api.post.mockRejectedValue({
+      response: { data: { message: 'Duplicate item at this location' } }
+    })
+    renderAt('/items/new')
+
+    await userEvent.type(screen.getByPlaceholderText(/title/i), 'Black backpack')
+    await userEvent.type(screen.getByPlaceholderText(/location/i), 'Library')
+    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(await screen.findByText('Duplicate item at this location')).toBeInTheDocument()
+    expect(screen.queryByText('Items page')).not.toBeInTheDocument()
+  })
 })
