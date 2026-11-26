@@ -44,6 +44,49 @@ describe('ItemForm — report mode (/items/new)', () => {
     expect(category).toHaveValue('other')
   })
 
-  test.todo('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items')
-  test.todo('shows the server\'s message when the request fails (e.g. 409) and stays on the page')
+    test('submitting POSTs (no reportedBy) and navigates to /items', async () => {
+    // Arrange: make the fake API succeed, then render the form
+    api.post.mockResolvedValue({ data: { item: { _id: '1' } } }) //fake API returns a new item
+    renderAt('/items/new')  // open the Report Item page
+
+    // Act: fill in the fields and click Save
+    await userEvent.type(screen.getByPlaceholderText(/title/i), 'Keys') //Types the title of item
+    const [status, category] = screen.getAllByRole('combobox')  //get the 2 dropdowns
+    await userEvent.selectOptions(status, 'found')  //Selects the status of item
+    await userEvent.selectOptions(category, 'accessories') //Selects the category of item
+    await userEvent.type(screen.getByPlaceholderText(/location/i), 'Cafeteria') //Types the location of item
+    await userEvent.type(screen.getByPlaceholderText(/description/i), 'Silver keyring') //Types the description of item
+    await userEvent.click(screen.getByRole('button', { name: /save/i })) //Clicks the save button
+
+    // Assert: we reached /items, and the right data was sent
+    expect(await screen.findByText('Items page')).toBeInTheDocument()
+    expect(api.post).toHaveBeenCalledWith('/items', { //checks the URL and data
+      title: 'Keys',
+      status: 'found',
+      category: 'accessories',
+      location: 'Cafeteria',
+      description: 'Silver keyring',
+    })
+  })
+
+    test('shows the server\'s message when the request fails and stays on the page', async () => {
+    // Arrange: make the fake API fail, then render the form
+    api.post.mockRejectedValue({   // fake API returns a 409 error
+      response: { data: { message: 'Duplicate item at this location' } },
+    })
+    renderAt('/items/new')  // open the Report Item page
+
+    // Act: fill in the fields and click Save
+    await userEvent.type(screen.getByPlaceholderText(/title/i), 'Keys') //Types the title of item
+    await userEvent.type(screen.getByPlaceholderText(/location/i), 'Cafeteria') //Types the location of item
+    await userEvent.click(screen.getByRole('button', { name: /save/i })) //Clicks the save button
+
+    // Assert: the error is shown and we are still on the form
+    expect(await screen.findByText('Duplicate item at this location')).toBeInTheDocument() //checks for the error message
+    expect(screen.getByRole('heading', { name: /report item/i })).toBeInTheDocument() //checks that we are still on the report item page
+    expect(screen.queryByText('Items page')).not.toBeInTheDocument() //checks that we are not on the items page
+  })
+
+  //test.todo('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items')
+  //test.todo('shows the server\'s message when the request fails (e.g. 409) and stays on the page')
 })

@@ -33,6 +33,39 @@ describe('/api/items', () => {
     expect(res.body.items).toEqual([]);
   });
 
-  test.todo('POST returns 409 when the same title is reported at the same location twice');
-  test.todo('PATCH returns 403 when someone who is not the reporter edits the item');
+
+  test('No Duplicate Title', async () => {
+    //Creating a JWT token with a user that reported that item
+    const token = await registerAndGetToken();
+    await createItem(token, { title: 'Keys', location: 'Cafeteria' });
+
+    //Reporting the same item twice again
+    const res = await request(app) //request(app) is the Supertest - await waits for the return
+    .post('/api/items')       //Creates the item
+    .set('Authorization', `Bearer ${token}`)    //Identifies the user
+    .send({ title: 'Keys', status: 'lost', category: 'accessories', location: 'Cafeteria' }); //Checks for the same item in the same location
+
+    //The Assert part AKA waiting for the result
+    expect(res.status).toBe(409);        // passes
+  })
+
+
+  test('Not the reporter edits an item', async () =>{
+    //Creating JWT tokens for 2 users
+    const token = await registerAndGetToken();  //Register a token for person 1
+    const token2 = await registerAndGetToken('Amgad', 'amgad@student.guc.edu.eg'); //Register a token for person 2
+    const item = await createItem(token);  //An item is reported, and kept
+
+    //Amgad is trying to edit the item
+    const res = await request(app)
+    .patch(`/api/items/${item._id}`)              // PATCH edits the item 
+    .set('Authorization', `Bearer ${token2}`)         // Amgad, not the reporter
+    .send({ title: 'Blue backpack' });            // the attempted change
+
+    //The Assert part AKA waiting for the result
+    expect(res.status).toBe(403);        // passes
+  })
+
+  //test.todo('POST returns 409 when the same title is reported at the same location twice');
+  //test.todo('PATCH returns 403 when someone who is not the reporter edits the item');
 });
