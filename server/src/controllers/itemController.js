@@ -42,7 +42,7 @@ export async function createItem(req, res, next) {
     res.status(201).json({ item: doc });
   } catch (err) {
     if (err.code === 11000) return res.status(409).json({ message: 'Duplicate item at this location' });
-    next(err); // awel test
+    next(err);
   }
 }
 
@@ -51,7 +51,7 @@ export async function updateItem(req, res, next) {
     const existing = await Item.findById(req.params.id);
     if (!existing) return res.status(404).json({ message: 'Item not found' });
     if (existing.reportedBy?.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'You can only edit items you reported' }); // tany test
+      return res.status(403).json({ message: 'You can only edit items you reported' });
     }
 
     // drop reportedBy from the merge so the owner can't be reassigned
