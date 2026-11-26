@@ -44,6 +44,46 @@ describe('ItemForm — report mode (/items/new)', () => {
     expect(category).toHaveValue('other')
   })
 
-  test.todo('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items')
-  test.todo('shows the server\'s message when the request fails (e.g. 409) and stays on the page')
+  test('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items', async () => {
+    // Arrange: the save will succeed
+    api.post.mockResolvedValue({ data: { item: {} } })
+    renderAt('/items/new')
+
+    // Act: fill in every field and click Save
+    await userEvent.type(screen.getByPlaceholderText(/title/i), 'Black backpack')
+    const [status, category] = screen.getAllByRole('combobox')
+    await userEvent.selectOptions(status, 'found')
+    await userEvent.selectOptions(category, 'accessories')
+    await userEvent.type(screen.getByPlaceholderText(/location/i), 'Library')
+    await userEvent.type(screen.getByPlaceholderText(/description/i), 'Has a red keychain')
+    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    // Assert: navigated away, after sending exactly these fields
+    expect(await screen.findByText('Items page')).toBeInTheDocument()
+    expect(api.post).toHaveBeenCalledTimes(1)
+    expect(api.post).toHaveBeenCalledWith('/items', {
+      title: 'Black backpack',
+      status: 'found',
+      category: 'accessories',
+      location: 'Library',
+      description: 'Has a red keychain'
+    })
+  })
+
+  test('shows the server\'s message when the request fails (e.g. 409) and stays on the page', async () => {
+    // Arrange: the server will reject the save
+    api.post.mockRejectedValue({
+      response: { status: 409, data: { message: 'Duplicate item at this location' } }
+    })
+    renderAt('/items/new')
+
+    // Act: submit the form
+    await userEvent.type(screen.getByPlaceholderText(/title/i), 'Black backpack')
+    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    // Assert: the message is shown and we are still on the form
+    expect(await screen.findByText('Duplicate item at this location')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /report item/i })).toBeInTheDocument()
+    expect(screen.queryByText('Items page')).not.toBeInTheDocument()
+  })
 })
