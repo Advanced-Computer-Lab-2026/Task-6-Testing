@@ -51,7 +51,7 @@ export async function updateItem(req, res, next) {
     const existing = await Item.findById(req.params.id);
     if (!existing) return res.status(404).json({ message: 'Item not found' });
     if (existing.reportedBy?.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'You can only edit items you reported' });
+     return res.status(403).json({ message: 'You can only edit items you reported' });
     }
 
     // drop reportedBy from the merge so the owner can't be reassigned
