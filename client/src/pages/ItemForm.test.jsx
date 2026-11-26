@@ -44,6 +44,50 @@ describe('ItemForm — report mode (/items/new)', () => {
     expect(category).toHaveValue('other')
   })
 
-  test.todo('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items')
-  test.todo('shows the server\'s message when the request fails (e.g. 409) and stays on the page')
+  test('submitting POSTs { title, status, category, location, description } (no reportedBy) and navigates to /items', async () => {
+    // Arrange: the fake API reports success
+    api.post.mockResolvedValue({ data: { item: {} } })
+    const user = userEvent.setup()
+    renderAt('/items/new')
+
+    // Act: fill in every field like a user would, then click Save
+    await user.type(screen.getByPlaceholderText(/title/i), 'Blue umbrella')
+    const [status, category] = screen.getAllByRole('combobox')
+    await user.selectOptions(status, 'found')
+    await user.selectOptions(category, 'accessories')
+    await user.type(screen.getByPlaceholderText(/location/i), 'Cafeteria')
+    await user.type(screen.getByPlaceholderText(/description/i), 'Left by the window')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    // Assert: the page navigated to /items (findBy waits for the async save)...
+    expect(await screen.findByText('Items page')).toBeInTheDocument()
+    // ...after sending exactly these fields once — toHaveBeenCalledWith compares with
+    // equality, so an extra key such as reportedBy would make this fail
+    expect(api.post).toHaveBeenCalledTimes(1)
+    expect(api.post).toHaveBeenCalledWith('/items', {
+      title: 'Blue umbrella',
+      status: 'found',
+      category: 'accessories',
+      location: 'Cafeteria',
+      description: 'Left by the window'
+    })
+  })
+
+  test('shows the server\'s message when the request fails (e.g. 409) and stays on the page', async () => {
+    // Arrange: the fake API rejects like axios does for a 409
+    api.post.mockRejectedValue({ response: { status: 409, data: { message: 'Duplicate item at this location' } } })
+    const user = userEvent.setup()
+    renderAt('/items/new')
+
+    // Act: submit a minimal form
+    await user.type(screen.getByPlaceholderText(/title/i), 'Black backpack')
+    await user.type(screen.getByPlaceholderText(/location/i), 'Library')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    // Assert: the server's message is shown and we are still on the form
+    expect(await screen.findByText('Duplicate item at this location')).toBeInTheDocument()
+    expect(api.post).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText('Items page')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /report item/i })).toBeInTheDocument()
+  })
 })
